@@ -173,11 +173,11 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="h-full bg-slate-50 font-sans text-slate-900 overflow-hidden flex flex-col">
-      {/* Main Content - White */}
-      <main className="flex-1 overflow-y-auto bg-white">
-        <header className="h-16 px-8 flex items-center justify-between border-b border-slate-200 bg-white sticky top-0 z-10">
-          <h1 className="text-2xl font-bold text-slate-800">Project Overview: {displayProjectName}</h1>
+    <div className="h-full bg-slate-50 dark:bg-slate-900 font-sans text-slate-900 dark:text-slate-100 overflow-hidden flex flex-col transition-colors duration-200">
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto bg-white dark:bg-slate-900 transition-colors duration-200">
+        <header className="h-16 px-8 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 sticky top-0 z-10 transition-colors duration-200">
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Project Overview: {displayProjectName}</h1>
           <div className="flex items-center gap-4">
             <Link to="/new-project" className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 transition">
               Manage Project
@@ -190,8 +190,8 @@ export default function Dashboard() {
           {/* Top Row: Health Badge & Stats */}
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Health Badge */}
-            <div className="bg-white border text-center border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col justify-center items-center col-span-1 min-h-[200px]">
-              <h3 className="font-semibold text-slate-600 mb-4 text-sm uppercase tracking-wider">Project Health</h3>
+            <div className="bg-white dark:bg-slate-800 border text-center border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm flex flex-col justify-center items-center col-span-1 min-h-[200px] transition-colors duration-200">
+              <h3 className="font-semibold text-slate-600 dark:text-slate-300 mb-4 text-sm uppercase tracking-wider">Project Health</h3>
                <div className="relative flex items-center justify-center">
                  {/* SVG Circle for progress */}
                  <svg className="w-32 h-32 transform -rotate-90">
@@ -223,23 +223,23 @@ export default function Dashboard() {
 
             {/* 4 Metric Cards container */}
             <div className="col-span-1 lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-6">
-               <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
-                 <p className="text-sm font-medium text-slate-500">Days Remaining</p>
-                 <p className="text-3xl font-bold text-slate-800 mt-2">12</p>
-                 <div className="w-full bg-slate-100 h-1.5 mt-4 rounded-full overflow-hidden">
+               <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm flex flex-col justify-between transition-colors duration-200">
+                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Days Remaining</p>
+                 <p className="text-3xl font-bold text-slate-800 dark:text-white mt-2">12</p>
+                 <div className="w-full bg-slate-100 dark:bg-slate-700 h-1.5 mt-4 rounded-full overflow-hidden">
                     <div className="bg-blue-500 h-full w-1/3"></div>
                  </div>
                </div>
                
-               <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
-                 <p className="text-sm font-medium text-slate-500">Tasks Completed</p>
-                 <p className="text-3xl font-bold text-slate-800 mt-2">
+               <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm flex flex-col justify-between transition-colors duration-200">
+                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Tasks Completed</p>
+                 <p className="text-3xl font-bold text-slate-800 dark:text-white mt-2">
                    {isRealData
                      ? Object.values(JSON.parse(localStorage.getItem('taskStatuses') || '{}')).filter(s => s === 'Done').length
                      : 10}
                    <span className="text-lg text-slate-400 font-normal">/{displayTasksTotal}</span>
                  </p>
-                 <div className="w-full bg-slate-100 h-1.5 mt-4 rounded-full overflow-hidden">
+                 <div className="w-full bg-slate-100 dark:bg-slate-700 h-1.5 mt-4 rounded-full overflow-hidden">
                     <div
                       className="bg-emerald-500 h-full transition-all duration-500"
                       style={{ width: isRealData
@@ -250,18 +250,18 @@ export default function Dashboard() {
                  </div>
                </div>
 
-               <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
-                 <p className="text-sm font-medium text-slate-500">Estimated Cost</p>
-                 <p className="text-3xl font-bold text-slate-800 mt-2">$24k</p>
+               <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm flex flex-col justify-between transition-colors duration-200">
+                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Estimated Cost</p>
+                 <p className="text-3xl font-bold text-slate-800 dark:text-white mt-2">$24k</p>
                  <p className="text-xs font-medium text-rose-500 mt-auto pt-4 flex items-center gap-1">
                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
                    +12% over budget
                  </p>
                </div>
 
-               <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex flex-col justify-between">
-                 <p className="text-sm font-medium text-slate-500">Team Size</p>
-                 <p className="text-3xl font-bold text-slate-800 mt-2">{displayTeamSize}</p>
+               <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm flex flex-col justify-between transition-colors duration-200">
+                 <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Team Size</p>
+                 <p className="text-3xl font-bold text-slate-800 dark:text-white mt-2">{displayTeamSize}</p>
                  <div className="flex -space-x-2 overflow-hidden mt-4">
                     {displayTeamMembers.slice(0, 3).map(m => (
                        <div key={m.id} title={m.name} className="inline-block h-8 w-8 rounded-full ring-2 ring-white border border-slate-200 bg-slate-50 flex items-center justify-center text-xs font-semibold text-slate-500">
@@ -282,8 +282,8 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
             {/* Timeline Chart */}
-            <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
-              <h3 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm transition-colors duration-200">
+              <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
                  Progress Burnup
               </h3>
               <div className="h-72">
@@ -305,26 +305,26 @@ export default function Dashboard() {
             </div>
 
             {/* Task Progress Table */}
-            <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-slate-200">
-                <h3 className="text-lg font-bold text-slate-800">Developer Workload</h3>
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-sm overflow-hidden flex flex-col transition-colors duration-200">
+              <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-white">Developer Workload</h3>
               </div>
               <div className="overflow-x-auto flex-1">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-semibold tracking-wider">
+                    <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-700 text-xs uppercase text-slate-500 dark:text-slate-400 font-semibold tracking-wider">
                       <th className="p-4 pl-6">Developer</th>
                       <th className="p-4">Tasks</th>
                       <th className="p-4 w-1/3">Progress</th>
                       <th className="p-4 pr-6 text-right">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
                     {displayDeveloperWorkload.map(task => (
-                      <tr key={task.id} className="hover:bg-slate-50/50 transition duration-150">
-                        <td className="p-4 pl-6 font-medium text-slate-800 whitespace-nowrap">{task.dev}</td>
-                        <td className="p-4 text-slate-600">
-                          <span className="font-semibold text-slate-800">{task.completed}</span> / {task.assigned}
+                      <tr key={task.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition duration-150">
+                        <td className="p-4 pl-6 font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">{task.dev}</td>
+                        <td className="p-4 text-slate-600 dark:text-slate-400">
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">{task.completed}</span> / {task.assigned}
                         </td>
                         <td className="p-4">
                           <div className="flex items-center gap-3">

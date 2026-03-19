@@ -14,6 +14,7 @@ model User {
   password         String
   githubUrl        String?
   role             String             @default("developer")
+  teamId           String?
   managedProjects  Project[]          @relation("ProjectManager")
   teamMemberships  TeamMember[]
   skillAssessments SkillAssessment[]

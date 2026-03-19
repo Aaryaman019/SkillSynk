@@ -1,12 +1,28 @@
-import React from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import SettingsModal from './SettingsModal';
 
 export default function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try { setUser(JSON.parse(userStr)); } catch(e) {}
+    }
+  }, [location.pathname]); // Update when navigating
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/auth');
+  };
   
-  // Hide sidebar on the landing page if desired, but user requested "all pages".
-  // However, a sidebar on a marketing landing page usually looks awkward.
-  // We will show it on all pages as explicitly requested.
+  // Hide sidebar on the landing page and auth page
+  if (location.pathname === '/' || location.pathname === '/auth') return null;
 
   const navItems = [
     { 
@@ -57,7 +73,7 @@ export default function AppSidebar() {
   ];
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 shrink-0 h-screen sticky top-0">
+    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col border-r border-slate-800 shrink-0 h-screen sticky top-0 z-[100]">
       
       {/* Brand Logo Header */}
       <div className="h-16 flex items-center px-6 border-b border-slate-800 font-bold text-xl text-white tracking-tight shrink-0">
@@ -92,17 +108,38 @@ export default function AppSidebar() {
 
       {/* Footer / User Profile snippet */}
       <div className="p-4 border-t border-slate-800 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-slate-300 text-sm border border-slate-700">
-            ME
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-slate-300 text-sm border border-slate-700 uppercase">
+            {user ? user.name.substring(0, 2) : 'ME'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-200 truncate">Manager</p>
-            <p className="text-xs text-slate-500 truncate">Settings</p>
+            <p className="text-sm font-medium text-slate-200 truncate">{user ? user.name : 'Guest'}</p>
+            <p className="text-xs text-slate-500 truncate">{user ? user.email : 'Not logged in'}</p>
           </div>
         </div>
+        
+        {user && (
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setIsSettingsOpen(true)}
+              className="flex-1 py-1.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
+            >
+              Settings
+            </button>
+            <button 
+              onClick={handleLogout}
+              className="flex-1 py-1.5 text-xs font-bold text-red-400 hover:text-red-300 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
+            >
+              Log Out
+            </button>
+          </div>
+        )}
       </div>
       
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+      />
     </aside>
   );
 }

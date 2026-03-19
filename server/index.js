@@ -26,6 +26,7 @@ const skillsRoutes = require('./routes/skills');
 // Use Routes
 app.use('/auth', authRoutes);
 app.use('/projects', projectsRoutes);
+app.use('/api/projects', projectsRoutes);
 app.use('/team', teamRoutes);
 app.use('/tasks', tasksRoutes);
 app.use('/skills', skillsRoutes);

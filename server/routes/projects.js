@@ -26,6 +26,71 @@ router.post('/', async (req, res) => {
   }
 });
 
+router.post('/suggest-tech-stack', async (req, res) => {
+  try {
+    const { name, description } = req.body;
+
+    if (!name || !description) {
+      return res.status(400).json({ error: 'Project name and description are required.' });
+    }
+
+    const systemPrompt = `You are a Senior Technical Architect.
+Your goal is to suggest a modern, practical tech stack for a new project based on its name and description.
+Rules:
+1. Suggest exactly 4 to 8 core technologies (e.g., Frontend, Backend, Database, Framework, Deployment).
+2. Output STRICTLY a valid JSON array of strings.
+Example output format:
+["React", "TypeScript", "Node.js", "PostgreSQL", "TailwindCSS"]
+Do not include markdown formatting or any other text.`;
+
+    const userPrompt = `
+Project Name: ${name}
+Description: ${description}
+
+Provide the JSON array of technologies:`;
+
+    let suggestedStack = null;
+    let warnings = [];
+
+    if (GEMINI_API_KEY) {
+      try {
+        const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+        const model = genAI.getGenerativeModel({ 
+          model: "gemini-2.0-flash",
+          generationConfig: { responseMimeType: "application/json" }
+        });
+
+        const result = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
+        const responseText = result.response.text();
+        
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          suggestedStack = JSON.parse(jsonMatch[0]);
+        }
+      } catch (err) {
+        console.error("Gemini API Error (suggest-tech-stack):", err);
+        warnings.push('AI service returned an error. Using fallback tech stack.');
+      }
+    } else {
+      warnings.push('No Gemini API Key configured. Using fallback tech stack.');
+    }
+
+    if (!suggestedStack || !Array.isArray(suggestedStack) || suggestedStack.length === 0) {
+      suggestedStack = ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'TailwindCSS'];
+    }
+
+    return res.status(200).json({
+      suggestions: suggestedStack,
+      warnings
+    });
+
+  } catch (error) {
+    console.error('Tech Stack Generation Error:', error);
+    res.status(500).json({ error: 'Internal server error while generating tech stack.' });
+  }
+});
+
+
 router.post('/generate-plan', async (req, res) => {
   try {
     const { project, team } = req.body;
