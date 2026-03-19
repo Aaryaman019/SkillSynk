@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               Int                @id @default(autoincrement())
+  name             String
+  email            String             @unique
+  password         String
+  githubUrl        String?
+  role             String             @default("developer")
+  teamId           String?
+  managedProjects  Project[]          @relation("ProjectManager")
+  teamMemberships  TeamMember[]
+  skillAssessments SkillAssessment[]
+  assignedTasks    Task[]
+}
+
+model Project {
+  id          Int          @id @default(autoincrement())
+  name        String
+  description String
+  techStack   String[]
+  deadline    DateTime?
+  managerId   Int
+  manager     User         @relation("ProjectManager", fields: [managerId], references: [id])
+  teamMembers TeamMember[]
+  tasks       Task[]
+}
+
+model TeamMember {
+  id         Int      @id @default(autoincrement())
+  projectId  Int
+  userId     Int
+  dailyHours Float    @default(8.0)
+  assignedAt DateTime @default(now())
+  project    Project  @relation(fields: [projectId], references: [id])
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+}
+
+model SkillAssessment {
+  id          Int    @id @default(autoincrement())
+  userId      Int
+  technology  String
+  selfRating  Int
+  githubScore Int?
+  matchStatus String @default("pending")
+  user        User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, technology])
+}
+
+model Task {
+  id             Int      @id @default(autoincrement())
+  projectId      Int
+  assignedTo     Int?
+  title          String
+  complexity     Int      @default(1)
+  status         String   @default("todo") 
+  estimatedHours Float?
+  project        Project  @relation(fields: [projectId], references: [id])
+  user           User?    @relation(fields: [assignedTo], references: [id])
+}
