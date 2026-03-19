@@ -38,6 +38,27 @@ export default function LandingPage() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState('');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    const token = localStorage.getItem('token');
+    if (storedUser && token) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setUser(null);
+    setIsProfileDropdownOpen(false);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -82,9 +103,40 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-4">
-            <Link to="/auth" className="bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm px-5 py-2 rounded-full transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5">
-              Sign In / Up
-            </Link>
+            {user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-200 text-slate-700 font-bold hover:bg-slate-300 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </button>
+                {isProfileDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-2 z-50">
+                    <div className="px-4 py-2 border-b border-slate-100 mb-1">
+                      <p className="text-sm font-semibold text-slate-900">{user.name || 'User'}</p>
+                      <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                    </div>
+                    <Link to="/dashboard" className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary-600 transition-colors">
+                      Dashboard
+                    </Link>
+                    <Link to="/settings" className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary-600 transition-colors">
+                      Settings
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors mt-1 border-t border-slate-100 pt-2"
+                    >
+                      Log out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link to="/auth" className="bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm px-5 py-2 rounded-full transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5">
+                Sign In / Up
+              </Link>
+            )}
             
             {/* Mobile Menu Toggle */}
             <button className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>

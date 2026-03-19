@@ -7,7 +7,7 @@ export default function AuthPage() {
   const [teamId, setTeamId] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [profession, setProfession] = useState('developer'); // default
+  const [profession, setProfession] = useState(''); // default placeholder
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -124,15 +124,18 @@ export default function AuthPage() {
                 </label>
                 <select
                   required
-                  className="appearance-none block w-full px-4 py-2.5 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-medium transition-all bg-white"
+                  className={`appearance-none block w-full px-4 py-2.5 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-medium transition-all bg-white ${!profession ? 'text-slate-400' : 'text-slate-900'}`}
                   value={profession}
                   onChange={(e) => setProfession(e.target.value)}
                 >
-                  <option value="student">Student</option>
-                  <option value="developer">Developer</option>
-                  <option value="freelancer">Freelancer</option>
-                  <option value="employee">Employee</option>
-                  <option value="other">Other</option>
+                  <option value="" disabled>Choose your profession</option>
+                  <option value="Developer">Developer</option>
+                  <option value="Designer">Designer</option>
+                  <option value="Project Manager">Project Manager</option>
+                  <option value="DevOps Engineer">DevOps Engineer</option>
+                  <option value="QA Engineer">QA Engineer</option>
+                  <option value="Data Scientist">Data Scientist</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
             )}

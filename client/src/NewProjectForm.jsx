@@ -166,6 +166,7 @@ export default function NewProjectForm() {
         const fullProjectData = {
           projectName: formData.name,
           projectDescription: formData.description,
+          budget: formData.budget,
           teamMembers: teamMembers,
           tasks: planData.tasks,
           estimatedCompletionDate: planData.estimatedCompletionDate,
@@ -264,7 +265,7 @@ export default function NewProjectForm() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-sm font-semibold text-slate-700">Budget Estimate ($)</label>
+                  <label className="text-sm font-semibold text-slate-700">Budget Estimate (₹)</label>
                   <input 
                     type="number" 
                     value={formData.budget}

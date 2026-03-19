@@ -7,9 +7,9 @@ import {
 const DEFAULT_TOTAL_BUDGET = 2500000; // in ₹ (₹25,00,000)
 
 const DEFAULT_COST_BREAKDOWN = [
-  { name: 'Development', value: 50, color: '#3b82f6', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4' },
+  { name: 'Development', value: 40, color: '#3b82f6', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4' },
   { name: 'Testing', value: 20, color: '#f59e0b', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-  { name: 'Design', value: 15, color: '#ec4899', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01' },
+  { name: 'Design', value: 25, color: '#ec4899', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01' },
   { name: 'Infrastructure', value: 15, color: '#10b981', icon: 'M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01' },
 ];
 
@@ -58,42 +58,24 @@ export default function CostAnalysis() {
         const planData = JSON.parse(raw);
         if (planData.tasks && planData.tasks.length > 0) {
           
-          // 1. Calculate Cost Breakdown mapping RequiredTechnology -> Category
-          let catCounts = { 'Development': 0, 'Design': 0, 'Infrastructure': 0, 'Testing': 0 };
-          
-          planData.tasks.forEach(t => {
-            const tech = (t.requiredTechnology || t.requiredTech || '').toLowerCase();
-            if (tech.includes('react') || tech.includes('css') || tech.includes('figma') || tech.includes('tailwind')) {
-              catCounts['Design']++;
-            } else if (tech.includes('node') || tech.includes('express') || tech.includes('api') || tech.includes('js') || tech.includes('go') || tech.includes('python')) {
-              catCounts['Development']++;
-            } else if (tech.includes('sql') || tech.includes('db') || tech.includes('postgres') || tech.includes('docker') || tech.includes('aws') || tech.includes('infra')) {
-              catCounts['Infrastructure']++;
-            } else {
-              catCounts['Testing']++;
-            }
-          });
+          if (planData.budget && !isNaN(Number(planData.budget))) {
+             setTotalBudget(Number(planData.budget));
+          } else {
+             let totalHours = 0;
+             planData.tasks.forEach(t => totalHours += (t.estimatedHours || 8));
+             setTotalBudget(totalHours * 1500);
+          }
 
-          const totalTasks = planData.tasks.length;
-          const mapPercentage = (count) => Math.round((count / totalTasks) * 100);
-
-          let dynamicCost = [
-            { name: 'Development', value: mapPercentage(catCounts['Development']), color: '#3b82f6', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4' },
-            { name: 'Testing', value: mapPercentage(catCounts['Testing']), color: '#f59e0b', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
-            { name: 'Design', value: mapPercentage(catCounts['Design']), color: '#ec4899', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01' },
-            { name: 'Infrastructure', value: mapPercentage(catCounts['Infrastructure']), color: '#10b981', icon: 'M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01' }
-          ];
-          
-          // Filter out 0% categories so the chart doesn't break
-          dynamicCost = dynamicCost.filter(c => c.value > 0);
-          setCostBreakdown(dynamicCost);
+          // Use fixed split requested by user
+          setCostBreakdown(DEFAULT_COST_BREAKDOWN);
 
           // 2. Calculate Developer Contribution Index
+          const savedStatuses = JSON.parse(localStorage.getItem('taskStatuses') || '{}');
           const cxMap = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4 };
           const devStats = {};
           
           planData.teamMembers.forEach(m => {
-            devStats[m.name] = { tasks: 0, rawScore: 0, complexitySum: 0 };
+            devStats[m.name] = { tasks: 0, completedTasks: 0, baseScore: 0, complexitySum: 0 };
           });
           
           planData.tasks.forEach((t, idx) => {
@@ -105,31 +87,43 @@ export default function CostAnalysis() {
                   dev = 'Unknown';
                }
             }
-            if (!devStats[dev]) devStats[dev] = { tasks: 0, rawScore: 0, complexitySum: 0 };
+            if (!devStats[dev]) devStats[dev] = { tasks: 0, completedTasks: 0, baseScore: 0, complexitySum: 0 };
             const m = cxMap[t.complexity?.toUpperCase()] || 2;
             devStats[dev].tasks += 1;
             devStats[dev].complexitySum += m;
-            // score logic: task complexity factor * estimated hours volume
-            devStats[dev].rawScore += (m * (t.estimatedHours || 8));
+            devStats[dev].baseScore += m; // base score is sum of complexity weights
+
+            if (savedStatuses[t.title] === 'Done') {
+              devStats[dev].completedTasks += 1;
+            }
           });
 
-          // Normalize scores to 0-100 range
-          const maxRaw = Math.max(...Object.values(devStats).map(s => s.rawScore), 1);
+          // Compute final combined scores
+          let maxFinal = 1;
+          let rawData = Object.keys(devStats).map(devName => {
+             const stats = devStats[devName];
+             const progressMultiplier = stats.tasks > 0 ? (stats.completedTasks / stats.tasks) : 0;
+             stats.finalScore = (stats.baseScore * 0.6) + (progressMultiplier * 100 * 0.4);
+             if (stats.finalScore > maxFinal) maxFinal = stats.finalScore;
+             return { name: devName, stats };
+          });
           
-          let dynamicScores = Object.keys(devStats).map(devName => {
-            const stats = devStats[devName];
+          let dynamicScores = rawData.map(item => {
+            const devName = item.name;
+            const stats = item.stats;
             const avgCx = stats.tasks === 0 ? 0 : stats.complexitySum / stats.tasks;
             let avgLabel = 'Low';
             if (avgCx > 3) avgLabel = 'Critical';
             else if (avgCx >= 2.5) avgLabel = 'High';
             else if (avgCx >= 1.5) avgLabel = 'Medium';
             
-            const normalizedScore = Math.round((stats.rawScore / maxRaw) * 100);
+            // Normalize scores to 0-100 range
+            const normalizedScore = Math.round((stats.finalScore / maxFinal) * 100);
             
             let tier = 'Learning';
-            if (normalizedScore >= 90) tier = 'Top Performer';
-            else if (normalizedScore >= 70) tier = 'Strong';
-            else if (normalizedScore >= 50) tier = 'Contributor';
+            if (normalizedScore >= 80) tier = 'Top Performer';
+            else if (normalizedScore >= 60) tier = 'Strong';
+            else if (normalizedScore >= 40) tier = 'Contributor';
 
             return {
               name: devName,

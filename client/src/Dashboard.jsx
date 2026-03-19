@@ -111,8 +111,28 @@ export default function Dashboard() {
   let displayDeveloperWorkload = tasks;
   let healthCompletion = projectHealth.completion;
   let healthDeficit = projectHealth.deficit;
+  let displayBudgetFormatted = '₹24k';
 
   if (isRealData) {
+    let calculatedTotalBudget = 0;
+    if (planData.budget && !isNaN(Number(planData.budget))) {
+      calculatedTotalBudget = Number(planData.budget);
+    } else {
+      let totalHours = 0;
+      planData.tasks.forEach(t => {
+        totalHours += (t.estimatedHours || 8);
+      });
+      calculatedTotalBudget = totalHours * 1500; // default rate
+    }
+
+    if (calculatedTotalBudget >= 100000) {
+      displayBudgetFormatted = `₹${(calculatedTotalBudget / 100000).toFixed(1)}L`;
+    } else if (calculatedTotalBudget >= 1000) {
+      displayBudgetFormatted = `₹${Math.round(calculatedTotalBudget / 1000)}k`;
+    } else {
+      displayBudgetFormatted = `₹${calculatedTotalBudget}`;
+    }
+
     // Brand new project starts at 0%
     healthCompletion = 0;
     healthDeficit = 0;
@@ -252,7 +272,7 @@ export default function Dashboard() {
 
                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm flex flex-col justify-between transition-colors duration-200">
                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Estimated Cost</p>
-                 <p className="text-3xl font-bold text-slate-800 dark:text-white mt-2">$24k</p>
+                 <p className="text-3xl font-bold text-slate-800 dark:text-white mt-2">{displayBudgetFormatted}</p>
                  <p className="text-xs font-medium text-rose-500 mt-auto pt-4 flex items-center gap-1">
                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
                    +12% over budget
