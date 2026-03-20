@@ -2,26 +2,8 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import ChatAssistant from './ChatAssistant';
 import { getStorageData } from './utils/storage';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend
-} from 'recharts';
 
 // Mock Data
-const progressData = [
-  { name: 'Week 1', planned: 20, actual: 20 },
-  { name: 'Week 2', planned: 40, actual: 35 },
-  { name: 'Week 3', planned: 60, actual: 50 },
-  { name: 'Week 4', planned: 80, actual: 65 },
-  { name: 'Week 5', planned: 100, actual: 75 },
-];
-
 const teamMembers = [
   { id: 1, name: 'Alice Smith', initials: 'AS', skill: 'React', workload: 'yellow' },
   { id: 2, name: 'Bob Jones', initials: 'BJ', skill: 'Node.js', workload: 'red' },
@@ -115,6 +97,13 @@ export default function Dashboard() {
   let displayBudgetFormatted = '₹24k';
   let daysRemaining = 12;
 
+  let timelineProgress = 67; // Mock default
+  let timelineStart = "Oct 1, 2023";
+  let timelineEnd = "Nov 15, 2023";
+  let timelineRiskStr = "Low";
+  let timelineRiskColorBadge = "bg-emerald-100 text-emerald-800 border-emerald-200";
+  let timelineSprint = 3;
+
   if (isRealData) {
     if (planData.deadline) {
       const diffMs = new Date(planData.deadline) - new Date();
@@ -147,6 +136,36 @@ export default function Dashboard() {
     const totalDone = planData.tasks.filter(t => savedStatuses[t.title] === 'Done').length;
     healthCompletion = planData.tasks.length > 0 ? Math.round((totalDone / planData.tasks.length) * 100) : 0;
     healthDeficit = 0;
+
+    const rawStartDate = planData.startDate || new Date().toISOString();
+    const rawEndDate = planData.deadline || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+     
+    timelineProgress = healthCompletion; 
+    timelineStart = new Date(rawStartDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    timelineEnd = new Date(rawEndDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+     
+    const startMs = new Date(rawStartDate).getTime();
+    const endMs = new Date(rawEndDate).getTime();
+    const nowMs = Date.now();
+     
+    let elapsedRatio = 0;
+    if (endMs > startMs) {
+      elapsedRatio = Math.max(0, Math.min(100, ((nowMs - startMs) / (endMs - startMs)) * 100));
+    }
+     
+    if (timelineProgress >= Math.floor(elapsedRatio) + 5) {
+      timelineRiskStr = "Low";
+      timelineRiskColorBadge = "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/40 dark:text-emerald-400 dark:border-emerald-800";
+    } else if (timelineProgress >= Math.floor(elapsedRatio) - 5) {
+      timelineRiskStr = "Medium";
+      timelineRiskColorBadge = "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/40 dark:text-amber-400 dark:border-amber-800";
+    } else {
+      timelineRiskStr = "High";
+      timelineRiskColorBadge = "bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/40 dark:text-rose-400 dark:border-rose-800";
+    }
+     
+    const weeksElapsed = Math.max(0, (nowMs - startMs) / (1000 * 60 * 60 * 24 * 7));
+    timelineSprint = Math.floor(weeksElapsed / 2) + 1;
 
     // Group tasks by assignedDeveloper — skip tasks with no developer name
     const devStats = {};
@@ -325,26 +344,47 @@ export default function Dashboard() {
           {/* Lower Row: Table & Chart */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             
-            {/* Timeline Chart */}
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm transition-colors duration-200">
+            {/* Timeline Estimation Card */}
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm flex flex-col transition-colors duration-200 h-full">
               <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-2">
-                 Progress Burnup
+                <svg className="w-5 h-5 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Timeline Estimation
               </h3>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={progressData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dx={-10} />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                      labelStyle={{ color: '#0f172a', fontWeight: 'bold' }}
-                    />
-                    <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }}/>
-                    <Line type="monotone" dataKey="planned" name="Planned %" stroke="#94a3b8" strokeWidth={2} dot={false} strokeDasharray="5 5" />
-                    <Line type="monotone" dataKey="actual" name="Actual %" stroke="#6366f1" strokeWidth={3} activeDot={{ r: 6 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+              
+              <div className="flex-1 flex flex-col justify-center mb-8">
+                <div className="flex justify-between items-end mb-2">
+                  <span className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Progress</span>
+                  <span className="text-2xl font-bold text-slate-800 dark:text-white">{timelineProgress}%</span>
+                </div>
+                <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-3 mb-2 overflow-hidden shadow-inner">
+                  <div className="bg-primary-500 h-full rounded-full transition-all duration-1000 ease-out relative" style={{ width: `${timelineProgress}%` }}>
+                    <div className="absolute inset-0 bg-white/20"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mt-auto">
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Start Date</p>
+                  <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm mb-4">{timelineStart}</p>
+                  
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Est. Completion</p>
+                  <p className="font-semibold text-slate-800 dark:text-slate-200 text-sm">{timelineEnd}</p>
+                </div>
+                
+                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50 flex flex-col">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Risk Level</p>
+                  <div className="mb-4">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${timelineRiskColorBadge}`}>
+                      {timelineRiskStr}
+                    </span>
+                  </div>
+                  
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Current Sprint</p>
+                  <p className="font-semibold text-slate-800 dark:text-slate-200 text-lg">Sprint {timelineSprint}</p>
+                </div>
               </div>
             </div>
 
