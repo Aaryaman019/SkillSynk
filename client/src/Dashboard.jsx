@@ -97,9 +97,7 @@ export default function Dashboard() {
   let displayBudgetFormatted = '₹24k';
 
   // Extract precise days remaining
-  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-  const projectData = JSON.parse(localStorage.getItem(`generatedPlan_${currentUser.email}`) || localStorage.getItem('generatedPlan') || '{}');
-  const deadline = projectData.deadline || projectData.estimatedCompletionDate;
+  const deadline = planData ? (planData.deadline || planData.estimatedCompletionDate) : null;
   const daysRemaining = deadline ? Math.ceil((new Date(deadline) - new Date()) / (1000 * 60 * 60 * 24)) : '—';
 
   let timelineProgress = 67; // Mock default

@@ -208,14 +208,15 @@ export default function NewProjectForm() {
           estimatedCompletionDate: planData.estimatedCompletionDate,
           warnings: planData.warnings || []
         };
-        localStorage.setItem('generatedPlan', JSON.stringify(fullProjectData));
-        localStorage.setItem('teamMembers', JSON.stringify(enhancedTeam));
+        setStorageData('generatedPlan', JSON.stringify(fullProjectData));
+        setStorageData('teamMembers', JSON.stringify(enhancedTeam));
+        setStorageData('taskStatuses', '{}'); // clear any remnant task states for this user
 
         // Force the loading phase to completely finish to show the final text
         setGenerationPhase(mockAnalyzeProcess.length - 1);
         
         // Send EmailJS notifications to all team members
-        const managerName = JSON.parse(localStorage.getItem('user'))?.name || 'Your Manager';
+        const managerName = JSON.parse(localStorage.getItem('currentUser'))?.name || 'Your Manager';
         try {
           await Promise.allSettled(enhancedTeam.map(member => {
             if (!member.email) return Promise.resolve();
