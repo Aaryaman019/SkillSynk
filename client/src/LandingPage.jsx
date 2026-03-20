@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 function FadeIn({ children, delay = 0, className = "" }) {
   const [isVisible, setIsVisible] = useState(false);
@@ -40,9 +40,10 @@ export default function LandingPage() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [isProfileDropdownOpen, setIsProfileDropdownOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
+    const storedUser = localStorage.getItem('currentUser');
     const token = localStorage.getItem('token');
     if (storedUser && token) {
       try {
@@ -55,9 +56,54 @@ export default function LandingPage() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('demoMode');
     setUser(null);
     setIsProfileDropdownOpen(false);
+  };
+
+  const handleDemoMode = () => {
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('token');
+    localStorage.setItem('demoMode', 'true');
+    
+    const demoTeam = [
+      { id: 't1', name: 'Alice Smith', github: 'alice', joined: new Date().toISOString() },
+      { id: 't2', name: 'Bob Jones', github: 'bob', joined: new Date().toISOString() },
+      { id: 't3', name: 'Charlie Day', github: 'charlie', joined: new Date().toISOString() }
+    ];
+    
+    // Create 15 predefined tasks
+    const demoTasks = Array.from({ length: 15 }).map((_, i) => ({
+      title: `Task ${i+1}`,
+      assignedDeveloper: demoTeam[i % 3].name,
+      complexity: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'][i % 4],
+      estimatedHours: [4, 8, 12, 16][i % 4],
+      requiredTech: 'React'
+    }));
+
+    // Setting To Do / In Progress / Done across demoTasks
+    const taskStatuses = {};
+    demoTasks.forEach((t, i) => {
+      // 10 done, 2 in progress, 3 to do
+      if (i < 10) taskStatuses[t.title] = 'Done';
+      else if (i < 12) taskStatuses[t.title] = 'In Progress';
+      else taskStatuses[t.title] = 'To Do';
+    });
+
+    const demoPlan = {
+      projectName: "E-Commerce Platform",
+      budget: 450000,
+      description: "Demo project",
+      teamMembers: demoTeam,
+      tasks: demoTasks
+    };
+
+    localStorage.setItem('demo_generatedPlan', JSON.stringify(demoPlan));
+    localStorage.setItem('demo_teamMembers', JSON.stringify(demoTeam));
+    localStorage.setItem('demo_taskStatuses', JSON.stringify(taskStatuses));
+    
+    navigate('/demo-dashboard');
   };
 
   useEffect(() => {
@@ -104,37 +150,20 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4">
             {user ? (
-              <div className="relative">
-                <button
-                  onClick={() => setIsProfileDropdownOpen(!isProfileDropdownOpen)}
-                  className="flex items-center justify-center w-10 h-10 rounded-full bg-slate-200 text-slate-700 font-bold hover:bg-slate-300 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium text-slate-700 hidden sm:block">
+                  Hi, {user.name || 'User'}
+                </span>
+                <button 
+                  onClick={handleLogout}
+                  className="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold text-sm px-5 py-2 rounded-full transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5"
                 >
-                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  Log Out
                 </button>
-                {isProfileDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-2 z-50">
-                    <div className="px-4 py-2 border-b border-slate-100 mb-1">
-                      <p className="text-sm font-semibold text-slate-900">{user.name || 'User'}</p>
-                      <p className="text-xs text-slate-500 truncate">{user.email}</p>
-                    </div>
-                    <Link to="/dashboard" className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary-600 transition-colors">
-                      Dashboard
-                    </Link>
-                    <Link to="/settings" className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 hover:text-primary-600 transition-colors">
-                      Settings
-                    </Link>
-                    <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors mt-1 border-t border-slate-100 pt-2"
-                    >
-                      Log out
-                    </button>
-                  </div>
-                )}
               </div>
             ) : (
               <Link to="/auth" className="bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm px-5 py-2 rounded-full transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5">
-                Sign In / Up
+                Sign In
               </Link>
             )}
             
@@ -189,19 +218,32 @@ export default function LandingPage() {
             
             <FadeIn delay={300}>
               <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-8">
-                <Link 
-                  to="/new-project" 
-                  className="bg-primary-600 hover:bg-primary-500 text-white font-bold text-base px-8 py-3.5 rounded-xl shadow-lg shadow-primary-500/30 transition-all duration-300 flex items-center gap-2 hover:-translate-y-1 hover:shadow-primary-500/40"
-                >
-                  Create Project
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-                </Link>
-                <button 
-                  className="bg-white hover:bg-slate-50 text-slate-800 font-bold text-base px-8 py-3.5 rounded-xl border border-slate-200 transition-all duration-300 shadow-sm flex items-center gap-2 hover:-translate-y-1 hover:shadow-md"
-                >
-                  View Demo
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
-                </button>
+                {user ? (
+                  <Link 
+                    to="/dashboard" 
+                    className="bg-primary-600 hover:bg-primary-500 text-white font-bold text-base px-8 py-3.5 rounded-xl shadow-lg shadow-primary-500/30 transition-all duration-300 flex items-center gap-2 hover:-translate-y-1 hover:shadow-primary-500/40"
+                  >
+                    Go to Dashboard
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                  </Link>
+                ) : (
+                  <>
+                    <Link 
+                      to="/auth" 
+                      className="bg-primary-600 hover:bg-primary-500 text-white font-bold text-base px-8 py-3.5 rounded-xl shadow-lg shadow-primary-500/30 transition-all duration-300 flex items-center gap-2 hover:-translate-y-1 hover:shadow-primary-500/40"
+                    >
+                      Get Started
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                    </Link>
+                    <button 
+                      onClick={handleDemoMode}
+                      className="bg-white hover:bg-slate-50 text-slate-800 font-bold text-base px-8 py-3.5 rounded-xl border border-slate-200 transition-all duration-300 shadow-sm flex items-center gap-2 hover:-translate-y-1 hover:shadow-md"
+                    >
+                      View Demo
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                  </>
+                )}
               </div>
             </FadeIn>
 

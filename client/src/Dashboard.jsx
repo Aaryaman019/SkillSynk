@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import ChatAssistant from './ChatAssistant';
+import { getStorageData } from './utils/storage';
 import {
   LineChart,
   Line,
@@ -92,7 +93,7 @@ export default function Dashboard() {
   const [planData, setPlanData] = useState(null);
 
   React.useEffect(() => {
-    const raw = localStorage.getItem('generatedPlan');
+    const raw = getStorageData('generatedPlan');
     if (raw) {
       try {
         setPlanData(JSON.parse(raw));
@@ -112,8 +113,14 @@ export default function Dashboard() {
   let healthCompletion = projectHealth.completion;
   let healthDeficit = projectHealth.deficit;
   let displayBudgetFormatted = '₹24k';
+  let daysRemaining = 12;
 
   if (isRealData) {
+    if (planData.deadline) {
+      const diffMs = new Date(planData.deadline) - new Date();
+      daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    }
+
     let calculatedTotalBudget = 0;
     if (planData.budget && !isNaN(Number(planData.budget))) {
       calculatedTotalBudget = Number(planData.budget);
@@ -133,12 +140,13 @@ export default function Dashboard() {
       displayBudgetFormatted = `₹${calculatedTotalBudget}`;
     }
 
-    // Brand new project starts at 0%
-    healthCompletion = 0;
-    healthDeficit = 0;
-
     // Read task statuses saved by the Task Board drag-and-drop
-    const savedStatuses = JSON.parse(localStorage.getItem('taskStatuses') || '{}');
+    const savedStatuses = JSON.parse(getStorageData('taskStatuses') || '{}');
+
+    // Calculate actual completion
+    const totalDone = planData.tasks.filter(t => savedStatuses[t.title] === 'Done').length;
+    healthCompletion = planData.tasks.length > 0 ? Math.round((totalDone / planData.tasks.length) * 100) : 0;
+    healthDeficit = 0;
 
     // Group tasks by assignedDeveloper — skip tasks with no developer name
     const devStats = {};
@@ -185,7 +193,7 @@ export default function Dashboard() {
     teamSize: displayTeamSize,
     healthStatus: healthDeficit >= 25 ? 'Critical' : healthDeficit > 10 ? 'At Risk' : 'On Track',
     tasksCompleted: isRealData
-      ? Object.values(JSON.parse(localStorage.getItem('taskStatuses') || '{}')).filter(s => s === 'Done').length
+      ? Object.values(JSON.parse(getStorageData('taskStatuses') || '{}')).filter(s => s === 'Done').length
       : 10,
     tasksTotal: displayTasksTotal,
     estimatedDate: displayEstimatedDate,
@@ -205,10 +213,24 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <div className="p-8 max-w-7xl mx-auto space-y-8">
-          
-          {/* Top Row: Health Badge & Stats */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {!planData ? (
+          <div className="flex flex-col items-center justify-center p-12 text-center h-[calc(100vh-100px)]">
+             <div className="bg-white dark:bg-slate-800 p-8 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm max-w-md w-full">
+               <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700/50 rounded-xl flex items-center justify-center mx-auto mb-6 text-slate-400">
+                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+               </div>
+               <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No project found for your account</h2>
+               <p className="text-slate-500 dark:text-slate-400 mb-6">Create your first project to get started with AI-powered task management.</p>
+               <Link to="/new-project" className="block w-full bg-primary-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-primary-500 transition-colors shadow-sm">
+                 Create New Project
+               </Link>
+             </div>
+          </div>
+        ) : (
+          <div className="p-8 max-w-7xl mx-auto space-y-8">
+            
+            {/* Top Row: Health Badge & Stats */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Health Badge */}
             <div className="bg-white dark:bg-slate-800 border text-center border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm flex flex-col justify-center items-center col-span-1 min-h-[200px] transition-colors duration-200">
               <h3 className="font-semibold text-slate-600 dark:text-slate-300 mb-4 text-sm uppercase tracking-wider">Project Health</h3>
@@ -245,9 +267,11 @@ export default function Dashboard() {
             <div className="col-span-1 lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-6">
                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm flex flex-col justify-between transition-colors duration-200">
                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Days Remaining</p>
-                 <p className="text-3xl font-bold text-slate-800 dark:text-white mt-2">12</p>
+                 <p className={`text-3xl font-bold mt-2 ${daysRemaining <= 0 ? 'text-rose-500' : 'text-slate-800 dark:text-white'}`}>
+                   {daysRemaining <= 0 ? 'Overdue' : daysRemaining}
+                 </p>
                  <div className="w-full bg-slate-100 dark:bg-slate-700 h-1.5 mt-4 rounded-full overflow-hidden">
-                    <div className="bg-blue-500 h-full w-1/3"></div>
+                    <div className={`${daysRemaining <= 0 ? 'bg-rose-500' : 'bg-blue-500'} h-full w-1/3`}></div>
                  </div>
                </div>
                
@@ -255,7 +279,7 @@ export default function Dashboard() {
                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Tasks Completed</p>
                  <p className="text-3xl font-bold text-slate-800 dark:text-white mt-2">
                    {isRealData
-                     ? Object.values(JSON.parse(localStorage.getItem('taskStatuses') || '{}')).filter(s => s === 'Done').length
+                     ? Object.values(JSON.parse(getStorageData('taskStatuses') || '{}')).filter(s => s === 'Done').length
                      : 10}
                    <span className="text-lg text-slate-400 font-normal">/{displayTasksTotal}</span>
                  </p>
@@ -263,7 +287,7 @@ export default function Dashboard() {
                     <div
                       className="bg-emerald-500 h-full transition-all duration-500"
                       style={{ width: isRealData
-                        ? `${Math.round((Object.values(JSON.parse(localStorage.getItem('taskStatuses') || '{}')).filter(s => s === 'Done').length / Math.max(displayTasksTotal, 1)) * 100)}%`
+                        ? `${Math.round((Object.values(JSON.parse(getStorageData('taskStatuses') || '{}')).filter(s => s === 'Done').length / Math.max(displayTasksTotal, 1)) * 100)}%`
                         : '50%'
                       }}
                     ></div>
@@ -369,9 +393,10 @@ export default function Dashboard() {
                 </table>
               </div>
             </div>
-
+            
           </div>
         </div>
+        )}
       </main>
 
       {/* Floating Chat Button */}

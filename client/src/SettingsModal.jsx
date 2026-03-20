@@ -10,7 +10,7 @@ export default function SettingsModal({ isOpen, onClose }) {
 
   useEffect(() => {
     if (isOpen) {
-      const userStr = localStorage.getItem('user');
+      const userStr = localStorage.getItem('currentUser');
       if (userStr) {
         try {
           const user = JSON.parse(userStr);
@@ -58,7 +58,7 @@ export default function SettingsModal({ isOpen, onClose }) {
 
       setMessage(data.message || 'Updated successfully!');
       if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('currentUser', JSON.stringify(data.user));
       }
       if (type === 'password') {
         setCurrentPassword('');

@@ -44,8 +44,8 @@ export default function AuthPage() {
       // Success, save token and route
       if (data.token) {
         localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        navigate('/dashboard');
+        localStorage.setItem('currentUser', JSON.stringify(data.user));
+        navigate('/');
       } else {
         throw new Error('No token received');
       }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { setStorageData } from './utils/storage';
 
 const mockAnalyzeProcess = [
   "Analyzing GitHub profiles...",
@@ -172,8 +173,8 @@ export default function NewProjectForm() {
           estimatedCompletionDate: planData.estimatedCompletionDate,
           warnings: planData.warnings || []
         };
-        localStorage.setItem('generatedPlan', JSON.stringify(fullProjectData));
-        localStorage.setItem('teamMembers', JSON.stringify(teamMembers));
+        setStorageData('generatedPlan', JSON.stringify(fullProjectData));
+        setStorageData('teamMembers', JSON.stringify(teamMembers));
 
         // Force the loading phase to completely finish to show the final text, then navigate
         setGenerationPhase(mockAnalyzeProcess.length - 1);

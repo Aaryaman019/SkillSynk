@@ -7,9 +7,11 @@ export default function AppSidebar() {
   const navigate = useNavigate();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [user, setUser] = useState(null);
+  const [isDemo, setIsDemo] = useState(false);
 
   useEffect(() => {
-    const userStr = localStorage.getItem('user');
+    setIsDemo(localStorage.getItem('demoMode') === 'true');
+    const userStr = localStorage.getItem('currentUser');
     if (userStr) {
       try { setUser(JSON.parse(userStr)); } catch(e) {}
     }
@@ -17,8 +19,18 @@ export default function AppSidebar() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('demoMode');
     navigate('/auth');
+  };
+
+  const handleExitDemo = () => {
+    localStorage.removeItem('demoMode');
+    localStorage.removeItem('demo_generatedPlan');
+    localStorage.removeItem('demo_teamMembers');
+    localStorage.removeItem('demo_taskStatuses');
+    setIsDemo(false);
+    navigate('/');
   };
   
   // Hide sidebar on the landing page and auth page
@@ -108,31 +120,68 @@ export default function AppSidebar() {
 
       {/* Footer / User Profile snippet */}
       <div className="p-4 border-t border-slate-800 shrink-0">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-slate-300 text-sm border border-slate-700 uppercase">
-            {user ? user.name.substring(0, 2) : 'ME'}
+        {!isDemo && user ? (
+          <>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-slate-300 text-sm border border-slate-700 uppercase">
+                {user.name.substring(0, 2)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-200 truncate">{user.name}</p>
+                <p className="text-xs text-slate-500 truncate">{user.email}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className="flex-1 py-1.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
+              >
+                Settings
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="flex-1 py-1.5 text-xs font-bold text-red-400 hover:text-red-300 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
+              >
+                Log Out
+              </button>
+            </div>
+          </>
+        ) : isDemo ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 opacity-50">
+              <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center font-bold text-slate-300 text-sm border border-slate-700 uppercase">
+                DM
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-slate-200 truncate">Demo Mode</p>
+                <p className="text-xs text-slate-500 truncate">Mock Data Active</p>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button 
+                onClick={() => {
+                  handleExitDemo();
+                  navigate('/auth');
+                }}
+                className="w-full py-2 text-xs font-bold text-white bg-primary-600 hover:bg-primary-500 rounded-lg transition-colors shadow-sm"
+              >
+                Sign In to Save Data
+              </button>
+              <button 
+                onClick={handleExitDemo}
+                className="w-full py-2 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
+              >
+                Exit Demo
+              </button>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-200 truncate">{user ? user.name : 'Guest'}</p>
-            <p className="text-xs text-slate-500 truncate">{user ? user.email : 'Not logged in'}</p>
-          </div>
-        </div>
-        
-        {user && (
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setIsSettingsOpen(true)}
-              className="flex-1 py-1.5 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
-            >
-              Settings
-            </button>
-            <button 
-              onClick={handleLogout}
-              className="flex-1 py-1.5 text-xs font-bold text-red-400 hover:text-red-300 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
-            >
-              Log Out
-            </button>
-          </div>
+        ) : (
+          <button 
+            onClick={() => navigate('/auth')}
+            className="w-full py-2 text-xs font-bold text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors border border-slate-700"
+          >
+            Sign In
+          </button>
         )}
       </div>
       

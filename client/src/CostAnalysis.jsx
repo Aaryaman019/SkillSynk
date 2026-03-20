@@ -1,4 +1,6 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { getStorageData } from './utils/storage';
 import { 
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend 
@@ -52,7 +54,7 @@ export default function CostAnalysis() {
   const [developerScores, setDeveloperScores] = React.useState(DEFAULT_DEVELOPER_SCORES);
 
   React.useEffect(() => {
-    const raw = localStorage.getItem('generatedPlan');
+    const raw = getStorageData('generatedPlan');
     if (raw) {
       try {
         const planData = JSON.parse(raw);
@@ -70,7 +72,7 @@ export default function CostAnalysis() {
           setCostBreakdown(DEFAULT_COST_BREAKDOWN);
 
           // 2. Calculate Developer Contribution Index
-          const savedStatuses = JSON.parse(localStorage.getItem('taskStatuses') || '{}');
+          const savedStatuses = JSON.parse(getStorageData('taskStatuses') || '{}');
           const cxMap = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3, 'CRITICAL': 4 };
           const devStats = {};
           
@@ -174,6 +176,20 @@ export default function CostAnalysis() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 py-10 px-4 sm:px-6 lg:px-8">
+      {!getStorageData('generatedPlan') ? (
+        <div className="flex flex-col items-center justify-center p-12 text-center h-[calc(100vh-200px)]">
+           <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-md w-full">
+             <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-6 text-slate-400">
+               <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+             </div>
+             <h2 className="text-xl font-bold text-slate-900 mb-2">No project found. Create a project first.</h2>
+             <p className="text-slate-500 mb-6">Create your first project to view its financial analysis.</p>
+             <Link to="/new-project" className="block w-full bg-primary-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-primary-500 transition-colors shadow-sm">
+               Create New Project
+             </Link>
+           </div>
+        </div>
+      ) : (
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header */}
@@ -330,6 +346,7 @@ export default function CostAnalysis() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

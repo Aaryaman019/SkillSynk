@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { getStorageData, setStorageData } from './utils/storage';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend 
 } from 'recharts';
@@ -17,14 +19,32 @@ const COMPLEXITY_STYLES = {
 
 export default function TaskBoard() {
   const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newTask, setNewTask] = useState({
+    title: '',
+    assignedTo: '',
+    complexity: 'MEDIUM',
+    hours: 8,
+    tech: '',
+    initialStatus: 'To Do'
+  });
   
   React.useEffect(() => {
-    const raw = localStorage.getItem('generatedPlan');
+    // Load Team Members
+    const rawTeam = getStorageData('teamMembers');
+    if (rawTeam) {
+      try {
+        setTeamMembers(JSON.parse(rawTeam));
+      } catch(e) { console.error("Error parsing team members", e); }
+    }
+
+    const raw = getStorageData('generatedPlan');
     if (raw) {
       try {
         const planData = JSON.parse(raw);
         if (planData.tasks && planData.tasks.length > 0) {
-          const rawStatuses = localStorage.getItem('taskStatuses');
+          const rawStatuses = getStorageData('taskStatuses');
           const savedStatuses = rawStatuses ? JSON.parse(rawStatuses) : {};
           
           // Keep track of chronological start days for the Gantt view
@@ -93,7 +113,7 @@ export default function TaskBoard() {
   const handleSaveProgress = () => {
     const statuses = {};
     tasks.forEach(t => { statuses[t.title] = t.status; });
-    localStorage.setItem('taskStatuses', JSON.stringify(statuses));
+    setStorageData('taskStatuses', JSON.stringify(statuses));
     setShowSaved(true);
     setTimeout(() => setShowSaved(false), 2000);
   };
@@ -133,11 +153,112 @@ export default function TaskBoard() {
          nextTasks.forEach(t => {
              newStatuses[t.title] = t.status;
          });
-         localStorage.setItem('taskStatuses', JSON.stringify(newStatuses));
+         setStorageData('taskStatuses', JSON.stringify(newStatuses));
          
          return nextTasks;
       });
     }
+  };
+
+  // --- DELETE TASK ---
+  const handleDeleteTask = (taskId) => {
+    const taskToDelete = tasks.find(t => t.id === taskId);
+    if (!taskToDelete) return;
+
+    if (!window.confirm(`Are you sure you want to delete "${taskToDelete.title}"?`)) return;
+
+    setTasks(prev => {
+      const nextTasks = prev.filter(t => t.id !== taskId);
+      
+      // Update localStorage: generatedPlan
+      const rawPlan = getStorageData('generatedPlan');
+      if (rawPlan) {
+        try {
+          const planData = JSON.parse(rawPlan);
+          planData.tasks = planData.tasks.filter(t => t.title !== taskToDelete.title);
+          setStorageData('generatedPlan', JSON.stringify(planData));
+        } catch(e) { console.error("Error updating plan after delete", e); }
+      }
+
+      // Update localStorage: taskStatuses
+      const rawStatuses = getStorageData('taskStatuses');
+      if (rawStatuses) {
+        try {
+          const statuses = JSON.parse(rawStatuses);
+          delete statuses[taskToDelete.title];
+          setStorageData('taskStatuses', JSON.stringify(statuses));
+        } catch(e) { console.error("Error updating statuses after delete", e); }
+      }
+
+      return nextTasks;
+    });
+  };
+
+  // --- ADD TASK ---
+  const handleAddTask = (e) => {
+    e.preventDefault();
+    if (!newTask.title || !newTask.assignedTo) return;
+
+    const nameParts = newTask.assignedTo.split(' ');
+    const initials = nameParts.length > 1 
+      ? `${nameParts[0][0]}${nameParts[nameParts.length - 1][0]}`.toUpperCase()
+      : newTask.assignedTo.slice(0, 2).toUpperCase();
+
+    const duration = Math.max(1, Math.ceil(newTask.hours / 8));
+    
+    // Find the next available start day (simplified)
+    const lastTask = tasks[tasks.length - 1];
+    const startDay = lastTask ? lastTask.startDay + lastTask.duration : 1;
+
+    const addedTask = {
+      id: `manual_${Date.now()}`,
+      title: newTask.title,
+      dev: newTask.assignedTo,
+      initials: initials,
+      complexity: newTask.complexity,
+      hours: Number(newTask.hours),
+      tech: newTask.tech || 'General',
+      status: newTask.initialStatus,
+      startDay: startDay,
+      duration: duration
+    };
+
+    setTasks(prev => [...prev, addedTask]);
+
+    // Update localStorage: generatedPlan
+    const rawPlan = getStorageData('generatedPlan');
+    if (rawPlan) {
+      try {
+        const planData = JSON.parse(rawPlan);
+        const planTask = {
+          title: addedTask.title,
+          estimatedHours: addedTask.hours,
+          complexity: addedTask.complexity,
+          requiredTech: addedTask.tech,
+          assignedDeveloper: addedTask.dev
+        };
+        planData.tasks.push(planTask);
+        setStorageData('generatedPlan', JSON.stringify(planData));
+      } catch(e) { console.error("Error updating plan after add", e); }
+    }
+
+    // Update localStorage: taskStatuses
+    const rawStatuses = getStorageData('taskStatuses');
+    try {
+      const statuses = rawStatuses ? JSON.parse(rawStatuses) : {};
+      statuses[addedTask.title] = addedTask.status;
+      setStorageData('taskStatuses', JSON.stringify(statuses));
+    } catch(e) { console.error("Error updating statuses after add", e); }
+
+    setShowAddModal(false);
+    setNewTask({
+      title: '',
+      assignedTo: '',
+      complexity: 'MEDIUM',
+      hours: 8,
+      tech: '',
+      initialStatus: 'To Do'
+    });
   };
 
   // --- TIMELINE CHART DATA TRANSFORM ---
@@ -247,18 +368,42 @@ export default function TaskBoard() {
               </select>
 
               {/* Save Progress button */}
-              <button
-                onClick={handleSaveProgress}
-                className="ml-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg transition flex items-center gap-2 shadow-sm"
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                Save Progress
-              </button>
-           </div>
+               <button
+                 onClick={handleSaveProgress}
+                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg transition flex items-center gap-2 shadow-sm"
+               >
+                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                 Save
+               </button>
+
+               {/* Add Task button */}
+               <button
+                 onClick={() => setShowAddModal(true)}
+                 className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold rounded-lg transition flex items-center gap-2 shadow-sm"
+               >
+                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                 Add Task
+               </button>
+            </div>
         </div>
 
         {/* MAIN VIEW AREA */}
 
+        {!getStorageData('generatedPlan') ? (
+          <div className="flex flex-col items-center justify-center p-12 text-center h-[calc(100vh-200px)]">
+             <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm max-w-md w-full">
+               <div className="w-16 h-16 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-6 text-slate-400">
+                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+               </div>
+               <h2 className="text-xl font-bold text-slate-900 mb-2">No project found. Create a project first.</h2>
+               <p className="text-slate-500 mb-6">Create your first project to view and manage tasks.</p>
+               <Link to="/new-project" className="block w-full bg-primary-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-primary-500 transition-colors shadow-sm">
+                 Create New Project
+               </Link>
+             </div>
+          </div>
+        ) : (
+          <>
         {/* Success Toast */}
         {showSaved && (
           <div className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl animate-in slide-in-from-top-2 duration-300 font-semibold">
@@ -298,14 +443,25 @@ export default function TaskBoard() {
                       className={`bg-white select-none cursor-grab active:cursor-grabbing border-y border-r border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow border-l-4 ${COMPLEXITY_STYLES[task.complexity].border}`}
                     >
                       <div className="flex justify-between items-start mb-3">
-                         <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${COMPLEXITY_STYLES[task.complexity].badge}`}>
-                           {task.complexity}
-                         </span>
-                         <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                           {task.hours}h
-                         </span>
-                      </div>
+                          <div className="flex items-center gap-2">
+                             <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${COMPLEXITY_STYLES[task.complexity].badge}`}>
+                               {task.complexity}
+                             </span>
+                             <button 
+                               onClick={() => handleDeleteTask(task.id)}
+                               className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
+                               title="Delete Task"
+                             >
+                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                               </svg>
+                             </button>
+                          </div>
+                          <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            {task.hours}h
+                          </span>
+                       </div>
                       
                       <h4 className="font-bold text-slate-800 mb-4 leading-tight">
                         {task.title}
@@ -368,6 +524,113 @@ export default function TaskBoard() {
 
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+        </>
+        )}
+
+        {/* --- ADD TASK MODAL --- */}
+        {showAddModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowAddModal(false)}></div>
+            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md relative overflow-hidden animate-in fade-in zoom-in duration-200">
+               <div className="bg-slate-900 p-6 text-white flex justify-between items-center">
+                  <h2 className="text-xl font-bold italic tracking-tight">Create Manual Task</h2>
+                  <button onClick={() => setShowAddModal(false)} className="text-slate-400 hover:text-white transition">
+                     <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                  </button>
+               </div>
+               
+               <form onSubmit={handleAddTask} className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Task Title *</label>
+                    <input 
+                      type="text" required
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none text-sm font-medium transition-all"
+                      placeholder="Enter specific task name..."
+                      value={newTask.title}
+                      onChange={e => setNewTask({...newTask, title: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Assign To *</label>
+                      <select 
+                        required
+                        className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none text-sm font-medium transition-all bg-white"
+                        value={newTask.assignedTo}
+                        onChange={e => setNewTask({...newTask, assignedTo: e.target.value})}
+                      >
+                        <option value="">Select Developer</option>
+                        {teamMembers.map(m => <option key={m.id} value={m.name}>{m.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Complexity</label>
+                      <select 
+                        className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none text-sm font-medium transition-all bg-white"
+                        value={newTask.complexity}
+                        onChange={e => setNewTask({...newTask, complexity: e.target.value})}
+                      >
+                        <option value="LOW">LOW</option>
+                        <option value="MEDIUM">MEDIUM</option>
+                        <option value="HIGH">HIGH</option>
+                        <option value="CRITICAL">CRITICAL</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Estimated Hours</label>
+                      <input 
+                        type="number" min="1"
+                        className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none text-sm font-medium transition-all"
+                        value={newTask.hours}
+                        onChange={e => setNewTask({...newTask, hours: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Status</label>
+                      <select 
+                        className="w-full px-3 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none text-sm font-medium transition-all bg-white"
+                        value={newTask.initialStatus}
+                        onChange={e => setNewTask({...newTask, initialStatus: e.target.value})}
+                      >
+                        {COLUMNS.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tech / Skill</label>
+                    <input 
+                      type="text"
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-primary-500 outline-none text-sm font-medium transition-all"
+                      placeholder="React, CSS, Node, etc."
+                      value={newTask.tech}
+                      onChange={e => setNewTask({...newTask, tech: e.target.value})}
+                    />
+                  </div>
+
+                  <div className="pt-4 flex gap-3">
+                    <button 
+                      type="button"
+                      onClick={() => setShowAddModal(false)}
+                      className="flex-1 px-4 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit"
+                      className="flex-1 px-4 py-3 bg-slate-900 text-white font-bold rounded-xl border border-transparent hover:bg-slate-800 shadow-lg shadow-slate-200 transition"
+                    >
+                      Add Task
+                    </button>
+                  </div>
+               </form>
             </div>
           </div>
         )}
