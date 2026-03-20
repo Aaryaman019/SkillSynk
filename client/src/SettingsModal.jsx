@@ -44,7 +44,7 @@ export default function SettingsModal({ isOpen, onClose }) {
         body.newPassword = newPassword;
       }
 
-      const res = await fetch('http://localhost:5005/auth/settings', {
+      const res = await fetch('https://skillsynk-1.onrender.com/auth/settings', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

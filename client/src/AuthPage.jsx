@@ -29,7 +29,7 @@ export default function AuthPage() {
         ? { email, password }
         : { email, password, role: profession, teamId };
 
-      const response = await fetch(`http://localhost:5005${endpoint}`, {
+      const response = await fetch(`https://skillsynk-1.onrender.com${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)

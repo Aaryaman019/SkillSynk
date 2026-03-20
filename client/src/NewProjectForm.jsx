@@ -102,7 +102,7 @@ export default function NewProjectForm() {
       if (suggestionsFetchedFor !== searchKey) {
         setIsFetchingSuggestions(true);
         try {
-          const response = await fetch('http://localhost:5005/projects/suggest-tech-stack', {
+          const response = await fetch('https://skillsynk-1.onrender.com/projects/suggest-tech-stack', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: formData.name, description: formData.description })
@@ -148,7 +148,7 @@ export default function NewProjectForm() {
         try {
           const username = m.githubUrl.split('/').filter(Boolean).pop(); // Extract from URL trailing logic
           if (username) {
-            const skillRes = await fetch('http://localhost:5005/api/skills/analyze-github', {
+            const skillRes = await fetch('https://skillsynk-1.onrender.com/api/skills/analyze-github', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
@@ -175,7 +175,7 @@ export default function NewProjectForm() {
       }));
 
       // Step 2: Feed the rigorously profiled team into the API
-      const response = await fetch('http://localhost:5005/api/projects/generate-plan', {
+      const response = await fetch('https://skillsynk-1.onrender.com/api/projects/generate-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

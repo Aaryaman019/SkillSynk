@@ -3,7 +3,7 @@ const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcrypt');
+const bcryptjs = require('bcryptjs');
 
 // Secure Register endpoint
 router.post('/register', async (req, res) => {
@@ -22,7 +22,7 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'Email already exists' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcryptjs.hash(password, 10);
     
     const user = await prisma.user.create({
       data: { 
@@ -50,7 +50,7 @@ router.post('/login', async (req, res) => {
     
     if (!user) return res.status(404).json({ error: 'Invalid email or password' });
     
-    const valid = await bcrypt.compare(password, user.password);
+    const valid = await bcryptjs.compare(password, user.password);
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
     
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'secret', { expiresIn: '1d' });
@@ -86,9 +86,9 @@ router.put('/settings', async (req, res) => {
     }
     
     if (currentPassword && newPassword) {
-      const valid = await bcrypt.compare(currentPassword, user.password);
+      const valid = await bcryptjs.compare(currentPassword, user.password);
       if (!valid) return res.status(400).json({ error: 'Incorrect current password' });
-      updateData.password = await bcrypt.hash(newPassword, 10);
+      updateData.password = await bcryptjs.hash(newPassword, 10);
     }
     
     const updatedUser = await prisma.user.update({
