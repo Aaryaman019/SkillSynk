@@ -95,7 +95,12 @@ export default function Dashboard() {
   let healthCompletion = projectHealth.completion;
   let healthDeficit = projectHealth.deficit;
   let displayBudgetFormatted = '₹24k';
-  let daysRemaining = 12;
+
+  // Extract precise days remaining
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  const projectData = JSON.parse(localStorage.getItem(`generatedPlan_${currentUser.email}`) || localStorage.getItem('generatedPlan') || '{}');
+  const deadline = projectData.deadline || projectData.estimatedCompletionDate;
+  const daysRemaining = deadline ? Math.ceil((new Date(deadline) - new Date()) / (1000 * 60 * 60 * 24)) : '—';
 
   let timelineProgress = 67; // Mock default
   let timelineStart = "Oct 1, 2023";
@@ -105,11 +110,6 @@ export default function Dashboard() {
   let timelineSprint = 3;
 
   if (isRealData) {
-    if (planData.deadline) {
-      const diffMs = new Date(planData.deadline) - new Date();
-      daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-    }
-
     let calculatedTotalBudget = 0;
     if (planData.budget && !isNaN(Number(planData.budget))) {
       calculatedTotalBudget = Number(planData.budget);
@@ -286,11 +286,13 @@ export default function Dashboard() {
             <div className="col-span-1 lg:col-span-3 grid grid-cols-2 md:grid-cols-4 gap-6">
                <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-6 rounded-2xl shadow-sm flex flex-col justify-between transition-colors duration-200">
                  <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Days Remaining</p>
-                 <p className={`text-3xl font-bold mt-2 ${daysRemaining <= 0 ? 'text-rose-500' : 'text-slate-800 dark:text-white'}`}>
-                   {daysRemaining <= 0 ? 'Overdue' : daysRemaining}
+                 <p className={`text-3xl font-bold mt-2 ${daysRemaining === '—' ? 'text-slate-800 dark:text-white' : daysRemaining <= 0 ? 'text-rose-500' : 'text-slate-800 dark:text-white'}`}>
+                   {daysRemaining === '—' ? '—' : daysRemaining <= 0 ? 'Overdue' : daysRemaining}
                  </p>
                  <div className="w-full bg-slate-100 dark:bg-slate-700 h-1.5 mt-4 rounded-full overflow-hidden">
-                    <div className={`${daysRemaining <= 0 ? 'bg-rose-500' : 'bg-blue-500'} h-full w-1/3`}></div>
+                    {daysRemaining !== '—' && (
+                      <div className={`${daysRemaining <= 0 ? 'bg-rose-500' : 'bg-blue-500'} h-full ${daysRemaining <= 0 ? 'w-full' : 'w-1/3'}`}></div>
+                    )}
                  </div>
                </div>
                
