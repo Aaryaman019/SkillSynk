@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { setStorageData } from './utils/storage';
+import emailjs from '@emailjs/browser';
 
 const mockAnalyzeProcess = [
   "Analyzing GitHub profiles...",
@@ -36,6 +37,7 @@ export default function NewProjectForm() {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [generationPhase, setGenerationPhase] = useState(0);
+  const [toast, setToast] = useState({ show: false, message: '' });
 
   // Auto-progress loading text
   useEffect(() => {
@@ -140,6 +142,39 @@ export default function NewProjectForm() {
     setGenerationPhase(0);
 
     try {
+      // Step 1: Actually scrape Github profiles to build authentic skill matrices!
+      const enhancedTeam = await Promise.all(teamMembers.map(async (m) => {
+        let skillsMatrix = [];
+        try {
+          const username = m.githubUrl.split('/').filter(Boolean).pop(); // Extract from URL trailing logic
+          if (username) {
+            const skillRes = await fetch('http://localhost:5005/api/skills/analyze-github', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                githubUsername: username, 
+                technologies: formData.techStack 
+              })
+            });
+            if (skillRes.ok) {
+              const profileData = await skillRes.json();
+              if (profileData.scores && profileData.scores.length > 0) {
+                // Return top matched requested technologies + their primary raw github languages
+                skillsMatrix = profileData.scores.map(s => s.technology);
+              }
+            }
+          }
+        } catch (err) {
+          console.warn(`Failed to scrape github stats for ${m.name}`, err);
+        }
+        
+        return {
+          ...m,
+          verifiedSkills: skillsMatrix.length > 0 ? skillsMatrix : ["Generic Programming"]
+        };
+      }));
+
+      // Step 2: Feed the rigorously profiled team into the API
       const response = await fetch('http://localhost:5005/api/projects/generate-plan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,7 +185,7 @@ export default function NewProjectForm() {
             techStack: formData.techStack,
             deadline: formData.deadline
           },
-          team: teamMembers
+          team: enhancedTeam
         })
       });
 
@@ -168,19 +203,47 @@ export default function NewProjectForm() {
           projectName: formData.name,
           projectDescription: formData.description,
           budget: formData.budget,
-          teamMembers: teamMembers,
+          teamMembers: enhancedTeam,
           tasks: planData.tasks,
           estimatedCompletionDate: planData.estimatedCompletionDate,
           warnings: planData.warnings || []
         };
-        setStorageData('generatedPlan', JSON.stringify(fullProjectData));
-        setStorageData('teamMembers', JSON.stringify(teamMembers));
+        localStorage.setItem('generatedPlan', JSON.stringify(fullProjectData));
+        localStorage.setItem('teamMembers', JSON.stringify(enhancedTeam));
 
-        // Force the loading phase to completely finish to show the final text, then navigate
+        // Force the loading phase to completely finish to show the final text
         setGenerationPhase(mockAnalyzeProcess.length - 1);
+        
+        // Send EmailJS notifications to all team members
+        const managerName = JSON.parse(localStorage.getItem('user'))?.name || 'Your Manager';
+        try {
+          await Promise.allSettled(enhancedTeam.map(member => {
+            if (!member.email) return Promise.resolve();
+            return emailjs.send(
+              import.meta.env.VITE_EMAILJS_SERVICE_ID,
+              import.meta.env.VITE_EMAILJS_TEMPLATE_ID,
+              {
+                developer_name: member.name,
+                project_name: formData.name,
+                manager_name: managerName,
+                project_description: formData.description,
+                tech_stack: formData.techStack.join(', '),
+                deadline: formData.deadline,
+                to_email: member.email
+              },
+              import.meta.env.VITE_EMAILJS_PUBLIC_KEY
+            );
+          }));
+          
+          setToast({ show: true, message: "Project created! Team members have been notified." });
+        } catch (emailErr) {
+          console.error("EmailJS sending error:", emailErr);
+          setToast({ show: true, message: "Project created, but email notifications failed." });
+        }
+
         setTimeout(() => {
           navigate('/dashboard');
-        }, 1500);
+        }, 2000);
       }
     } catch (err) {
       console.error("API Error connecting to generate-plan:", err);
@@ -191,6 +254,12 @@ export default function NewProjectForm() {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 py-12 px-4 sm:px-6 lg:px-8 flex flex-col pt-24">
+      {toast.show && (
+        <div className="fixed top-6 right-6 z-50 flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl animate-in slide-in-from-top-2 duration-300 font-semibold max-w-sm">
+          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+          <span className="text-sm leading-tight tracking-wide">{toast.message}</span>
+        </div>
+      )}
       
       {/* Container */}
       <div className="max-w-3xl w-full mx-auto bg-white shadow-xl shadow-slate-200/50 rounded-2xl border border-slate-200 overflow-hidden flex flex-col">

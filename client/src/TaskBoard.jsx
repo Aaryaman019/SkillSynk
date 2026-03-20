@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getStorageData, setStorageData } from './utils/storage';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend 
-} from 'recharts';
-
 // --- MOCK DATA ---
 const INITIAL_TASKS = [];
 
@@ -90,13 +86,40 @@ export default function TaskBoard() {
       } catch(e) { console.error("Error parsing generated plan in task board", e); }
     }
   }, []);
-  const [viewMode, setViewMode] = useState('kanban'); // 'kanban' | 'timeline'
   const [showSaved, setShowSaved] = useState(false);
-  
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  React.useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+
+    const handleAnchorClick = (e) => {
+      if (!hasUnsavedChanges) return;
+      const target = e.target.closest('a');
+      if (target && target.href) {
+        if (!window.confirm("You have unsaved changes. Are you sure you want to leave?")) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('click', handleAnchorClick, { capture: true });
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('click', handleAnchorClick, { capture: true });
+    };
+  }, [hasUnsavedChanges]);
+
   // Filters
   const [filterDev, setFilterDev] = useState('All');
   const [filterComplexity, setFilterComplexity] = useState('All');
-  const [filterStatus, setFilterStatus] = useState('All');
 
   const developers = ['All', ...new Set(tasks.map(t => t.dev))];
   const complexities = ['All', 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
@@ -105,15 +128,37 @@ export default function TaskBoard() {
   const filteredTasks = tasks.filter(task => {
     if (filterDev !== 'All' && task.dev !== filterDev) return false;
     if (filterComplexity !== 'All' && task.complexity !== filterComplexity) return false;
-    if (filterStatus !== 'All' && task.status !== filterStatus) return false;
     return true;
   });
 
   // --- SAVE PROGRESS ---
   const handleSaveProgress = () => {
+    // 1. Filter out deleted tasks permanently
+    const activeTasks = tasks.filter(t => !t.deleted);
+    setTasks(activeTasks);
+
+    // 2. Save statuses
     const statuses = {};
-    tasks.forEach(t => { statuses[t.title] = t.status; });
+    activeTasks.forEach(t => { statuses[t.title] = t.status; });
     setStorageData('taskStatuses', JSON.stringify(statuses));
+
+    // 3. Save to generatedPlan
+    const rawPlan = getStorageData('generatedPlan');
+    if (rawPlan) {
+      try {
+        const planData = JSON.parse(rawPlan);
+        planData.tasks = activeTasks.map(t => ({
+          title: t.title,
+          estimatedHours: t.hours,
+          complexity: t.complexity,
+          requiredTech: t.tech,
+          assignedDeveloper: t.dev
+        }));
+        setStorageData('generatedPlan', JSON.stringify(planData));
+      } catch(e) { console.error("Error updating plan on save", e); }
+    }
+
+    setHasUnsavedChanges(false);
     setShowSaved(true);
     setTimeout(() => setShowSaved(false), 2000);
   };
@@ -145,16 +190,11 @@ export default function TaskBoard() {
     // Allow drop if status actually changed
     if (taskId) {
       setTasks(prev => {
+         const taskChanged = prev.find(t => t.id === taskId)?.status !== status;
          const nextTasks = prev.map(t => 
            t.id === taskId ? { ...t, status } : t
          );
-         
-         const newStatuses = {};
-         nextTasks.forEach(t => {
-             newStatuses[t.title] = t.status;
-         });
-         setStorageData('taskStatuses', JSON.stringify(newStatuses));
-         
+         if (taskChanged) setHasUnsavedChanges(true);
          return nextTasks;
       });
     }
@@ -165,31 +205,11 @@ export default function TaskBoard() {
     const taskToDelete = tasks.find(t => t.id === taskId);
     if (!taskToDelete) return;
 
-    if (!window.confirm(`Are you sure you want to delete "${taskToDelete.title}"?`)) return;
-
     setTasks(prev => {
-      const nextTasks = prev.filter(t => t.id !== taskId);
-      
-      // Update localStorage: generatedPlan
-      const rawPlan = getStorageData('generatedPlan');
-      if (rawPlan) {
-        try {
-          const planData = JSON.parse(rawPlan);
-          planData.tasks = planData.tasks.filter(t => t.title !== taskToDelete.title);
-          setStorageData('generatedPlan', JSON.stringify(planData));
-        } catch(e) { console.error("Error updating plan after delete", e); }
-      }
-
-      // Update localStorage: taskStatuses
-      const rawStatuses = getStorageData('taskStatuses');
-      if (rawStatuses) {
-        try {
-          const statuses = JSON.parse(rawStatuses);
-          delete statuses[taskToDelete.title];
-          setStorageData('taskStatuses', JSON.stringify(statuses));
-        } catch(e) { console.error("Error updating statuses after delete", e); }
-      }
-
+      const nextTasks = prev.map(t => 
+        t.id === taskId ? { ...t, deleted: true } : t
+      );
+      setHasUnsavedChanges(true);
       return nextTasks;
     });
   };
@@ -224,31 +244,7 @@ export default function TaskBoard() {
     };
 
     setTasks(prev => [...prev, addedTask]);
-
-    // Update localStorage: generatedPlan
-    const rawPlan = getStorageData('generatedPlan');
-    if (rawPlan) {
-      try {
-        const planData = JSON.parse(rawPlan);
-        const planTask = {
-          title: addedTask.title,
-          estimatedHours: addedTask.hours,
-          complexity: addedTask.complexity,
-          requiredTech: addedTask.tech,
-          assignedDeveloper: addedTask.dev
-        };
-        planData.tasks.push(planTask);
-        setStorageData('generatedPlan', JSON.stringify(planData));
-      } catch(e) { console.error("Error updating plan after add", e); }
-    }
-
-    // Update localStorage: taskStatuses
-    const rawStatuses = getStorageData('taskStatuses');
-    try {
-      const statuses = rawStatuses ? JSON.parse(rawStatuses) : {};
-      statuses[addedTask.title] = addedTask.status;
-      setStorageData('taskStatuses', JSON.stringify(statuses));
-    } catch(e) { console.error("Error updating statuses after add", e); }
+    setHasUnsavedChanges(true);
 
     setShowAddModal(false);
     setNewTask({
@@ -259,56 +255,6 @@ export default function TaskBoard() {
       tech: '',
       initialStatus: 'To Do'
     });
-  };
-
-  // --- TIMELINE CHART DATA TRANSFORM ---
-  // Recharts BarChart needs data grouped by Y-axis category (Developer).
-  // We format it so each Developer has an array of "segments".
-  
-  const generateTimelineData = () => {
-    const devDataMap = {};
-    
-    // Initialize map
-    developers.filter(d => d !== 'All').forEach(dev => {
-      devDataMap[dev] = { name: dev };
-    });
-
-    filteredTasks.forEach((task, index) => {
-      // In a real Gantt, we'd use Custom shapes in Recharts to cleanly offset bars.
-      // For a BarChart hack, we stack transparent bars to push real bars forward.
-      // E.g., task1_offset, task1_duration, task2_offset, task2_duration
-      const devRow = devDataMap[task.dev];
-      
-      // Calculate delay before this task starts (offset)
-      const offsetKey = `offset_${task.id}`;
-      const durationKey = `dur_${task.id}`;
-      devRow[offsetKey] = task.startDay;
-      devRow[durationKey] = task.duration;
-      devRow[`color_${task.id}`] = COMPLEXITY_STYLES[task.complexity].hex;
-      devRow[`title_${task.id}`] = task.title;
-    });
-    
-    return Object.values(devDataMap);
-  };
-
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      // Find the specific bar segment being hovered by looking at `payload[0]` which contains the active dataKey
-      const activeDataKey = payload[0].dataKey;
-      if (activeDataKey && !activeDataKey.startsWith('offset_')) {
-        const taskId = activeDataKey.replace('dur_', '');
-        const title = payload[0].payload[`title_${taskId}`];
-        const duration = payload[0].payload[`dur_${taskId}`];
-        return (
-          <div className="bg-white p-3 border border-slate-200 shadow-lg rounded-lg">
-            <p className="font-bold text-slate-800">{title}</p>
-            <p className="text-sm text-slate-600">Developer: {label}</p>
-            <p className="text-sm text-slate-600">Duration: {duration} days</p>
-          </div>
-        );
-      }
-    }
-    return null;
   };
 
   return (
@@ -326,22 +272,10 @@ export default function TaskBoard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-             {/* View Toggle */}
-             <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 mr-2">
-               <button 
-                 onClick={() => setViewMode('kanban')}
-                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition ${viewMode === 'kanban' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-               >
-                 Kanban Board
-               </button>
-               <button 
-                 onClick={() => setViewMode('timeline')}
-                 className={`px-3 py-1.5 text-sm font-medium rounded-md transition ${viewMode === 'timeline' ? 'bg-white shadow-sm text-slate-800' : 'text-slate-500 hover:text-slate-700'}`}
-               >
-                 Timeline
-               </button>
+             <div className="px-3 py-1.5 bg-slate-100/80 text-slate-700 text-sm font-bold rounded-lg border border-slate-200 shadow-sm flex items-center gap-1.5 mr-1">
+               <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
+               Kanban Board
              </div>
-
              {/* Filters */}
              <select 
                className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-primary-500"
@@ -357,23 +291,19 @@ export default function TaskBoard() {
                {complexities.map(c => <option key={c} value={c}>{c === 'All' ? 'All Complexities' : c}</option>)}
              </select>
 
-              {/* Status filter */}
-              <select 
-                className="text-sm border border-slate-300 rounded-lg px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
-                value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-                disabled={viewMode === 'kanban'}
-              >
-                <option value="All">All Statuses</option>
-                {COLUMNS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-
               {/* Save Progress button */}
                <button
                  onClick={handleSaveProgress}
-                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg transition flex items-center gap-2 shadow-sm"
+                 className={`relative px-4 py-2 text-white text-sm font-semibold rounded-lg transition flex items-center gap-2 shadow-sm ${
+                   hasUnsavedChanges 
+                     ? 'bg-amber-500 hover:bg-amber-400' 
+                     : 'bg-emerald-600 hover:bg-emerald-500'
+                 }`}
                >
+                 {hasUnsavedChanges && <span className="w-2 h-2 rounded-full bg-white animate-ping absolute -top-1 -right-1"></span>}
+                 {hasUnsavedChanges && <span className="w-2 h-2 rounded-full bg-white absolute -top-1 -right-1"></span>}
                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                 Save
+                 {hasUnsavedChanges ? 'Unsaved changes' : 'Save Progress'}
                </button>
 
                {/* Add Task button */}
@@ -411,8 +341,8 @@ export default function TaskBoard() {
             Progress saved!
           </div>
         )}
-        {viewMode === 'kanban' ? (
-          /* --- KANBAN BOARD --- */
+        
+          {/* --- KANBAN BOARD --- */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-200px)] min-h-[600px]">
             {COLUMNS.map(columnId => (
               <div 
@@ -437,25 +367,27 @@ export default function TaskBoard() {
                     /* TASK CARD */
                     <div 
                       key={task.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, task.id)}
+                      draggable={!task.deleted}
+                      onDragStart={(e) => !task.deleted && handleDragStart(e, task.id)}
                       onDragEnd={handleDragEnd}
-                      className={`bg-white select-none cursor-grab active:cursor-grabbing border-y border-r border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow border-l-4 ${COMPLEXITY_STYLES[task.complexity].border}`}
+                      className={`bg-white select-none ${task.deleted ? 'opacity-50 grayscale' : 'cursor-grab active:cursor-grabbing hover:shadow-md'} border-y border-r border-slate-200 rounded-xl p-4 shadow-sm transition-shadow border-l-4 ${COMPLEXITY_STYLES[task.complexity].border}`}
                     >
                       <div className="flex justify-between items-start mb-3">
                           <div className="flex items-center gap-2">
                              <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border ${COMPLEXITY_STYLES[task.complexity].badge}`}>
                                {task.complexity}
                              </span>
-                             <button 
-                               onClick={() => handleDeleteTask(task.id)}
-                               className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
-                               title="Delete Task"
-                             >
-                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                               </svg>
-                             </button>
+                             {!task.deleted && (
+                               <button 
+                                 onClick={() => handleDeleteTask(task.id)}
+                                 className="p-1 text-slate-400 hover:text-rose-500 transition-colors"
+                                 title="Delete Task"
+                               >
+                                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                 </svg>
+                               </button>
+                             )}
                           </div>
                           <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -463,7 +395,7 @@ export default function TaskBoard() {
                           </span>
                        </div>
                       
-                      <h4 className="font-bold text-slate-800 mb-4 leading-tight">
+                      <h4 className={`font-bold mb-4 leading-tight ${task.deleted ? 'text-slate-500 line-through' : 'text-slate-800'}`}>
                         {task.title}
                       </h4>
                       
@@ -492,41 +424,6 @@ export default function TaskBoard() {
               </div>
             ))}
           </div>
-        ) : (
-          /* --- TIMELINE CHART --- */
-          <div className="bg-white border text-center border-slate-200 p-6 rounded-2xl shadow-sm h-[600px] flex flex-col">
-            <h3 className="font-bold text-slate-800 mb-6 text-left">Developer Timeline (Gantt View)</h3>
-            <div className="flex-1 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                   layout="vertical" 
-                   data={generateTimelineData()} 
-                   margin={{ top: 20, right: 30, left: 40, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                  <XAxis type="number" textAnchor="end" tick={{fill: '#64748b', fontSize: 12}} domain={[0, 'dataMax + 2']} label={{ value: 'Project Timeline (Days)', position: 'insideBottomRight', offset: -10 }}/>
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 13, fontWeight: 'bold'}} />
-                  <Tooltip content={<CustomTooltip />} cursor={{fill: 'rgba(241, 245, 249, 0.4)'}} />
-                  
-                  {/* 
-                     We map over all tasks to create stacked bars.
-                     For real React/Recharts, doing custom shaped bars is better, but stacking 
-                     a transparent offset followed by the real bar gives a pseudo-Gantt effect.
-                  */}
-                  {tasks.map((task) => (
-                    <React.Fragment key={task.id}>
-                      {/* Transparent bar for offset */}
-                      <Bar dataKey={`offset_${task.id}`} stackId={task.dev} fill="transparent" />
-                      {/* Actual duration bar */}
-                      <Bar dataKey={`dur_${task.id}`} stackId={task.dev} fill={COMPLEXITY_STYLES[task.complexity].hex} radius={[4, 4, 4, 4]} />
-                    </React.Fragment>
-                  ))}
-
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-        )}
         </>
         )}
 
