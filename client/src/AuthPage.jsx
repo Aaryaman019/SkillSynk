@@ -7,7 +7,7 @@ export default function AuthPage() {
   const [teamId, setTeamId] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [profession, setProfession] = useState(''); // default placeholder
+  const [profession, setProfession] = useState(''); // default to empty for placeholder
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
@@ -124,11 +124,11 @@ export default function AuthPage() {
                 </label>
                 <select
                   required
-                  className={`appearance-none block w-full px-4 py-2.5 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-medium transition-all bg-white ${!profession ? 'text-slate-400' : 'text-slate-900'}`}
+                  className="appearance-none block w-full px-4 py-2.5 border border-slate-300 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm font-medium transition-all bg-white"
                   value={profession}
                   onChange={(e) => setProfession(e.target.value)}
                 >
-                  <option value="" disabled>Choose your profession</option>
+                  <option value="" disabled>Choose your profession...</option>
                   <option value="Developer">Developer</option>
                   <option value="Designer">Designer</option>
                   <option value="Project Manager">Project Manager</option>
